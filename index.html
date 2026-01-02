@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Mastery - God Mode</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<style>
+  :root {
+      --white-square: rgba(255, 255, 255, 0.2);
+      --black-square: rgba(0, 0, 0, 0.5);
+      --highlight: rgba(0, 255, 136, 0.5);
+      --check: rgba(255, 0, 85, 0.6);
+      --text-color: #fff;
+      --board-size: 480px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      min-height: 100vh;
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+  }
+
+  /* --- Background Effects --- */
+  .shape { position: absolute; filter: blur(80px); z-index: -1; }
+  .shape-1 { top: -10%; left: -10%; width: 400px; height: 400px; background: #6a11cb; opacity: 0.2; border-radius: 50%; }
+  .shape-2 { bottom: -10%; right: -10%; width: 350px; height: 350px; background: #2575fc; opacity: 0.2; border-radius: 50%; }
+
+  /* --- Navigation --- */
+  .top-bar { position: absolute; top: 20px; left: 20px; z-index: 100; }
+  .back-btn {
+      text-decoration: none; color: white; font-size: 1em; display: flex; align-items: center; gap: 10px;
+      padding: 8px 15px; border-radius: 30px; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; backdrop-filter: blur(5px);
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.2); transform: translateX(-5px); }
+
+  /* --- Game Container --- */
+  .game-container { display: flex; flex-direction: column; align-items: center; perspective: 1000px; z-index: 10; }
+  h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+  /* --- Status Bar --- */
+  .status-bar {
+      background: rgba(255, 255, 255, 0.1); padding: 10px 30px; border-radius: 50px;
+      margin-bottom: 20px; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1);
+      font-weight: 600; display: flex; gap: 15px; align-items: center;
+  }
+  .turn-indicator { width: 15px; height: 15px; border-radius: 50%; background: white; box-shadow: 0 0 10px white; transition: 0.3s; }
+  .turn-indicator.black { background: #111; box-shadow: 0 0 10px #000; border: 1px solid #555; }
+
+  /* --- Chess Board --- */
+  .chessboard {
+      display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+      width: var(--board-size); height: var(--board-size);
+      border: 10px solid rgba(255, 255, 255, 0.1); border-radius: 5px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: rgba(0,0,0,0.2); position: relative;
+  }
+
+  .square { width: 100%; height: 100%; position: relative; overflow: hidden; cursor: pointer; }
+  .white-sq { background-color: var(--white-square); }
+  .black-sq { background-color: var(--black-square); }
+
+  /* Move Indicators */
+  .highlight::after {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 15px; height: 15px; background: var(--highlight); border-radius: 50%;
+      box-shadow: 0 0 10px var(--highlight); pointer-events: none;
+  }
+  .capture-hint { background-color: rgba(255, 0, 0, 0.3) !important; }
+  .selected { background-color: rgba(0, 255, 136, 0.3) !important; }
+  .in-check { background-color: var(--check) !important; }
+
+  /* Pieces */
+  .piece {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 2.8em; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+      transition: transform 0.2s;
+  }
+  .piece.white { color: #f0f0f0; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+  .piece.black { color: #1a1a1a; text-shadow: 0 0 2px rgba(255,255,255,0.5); }
+
+  /* --- Controls --- */
+  .controls { margin-top: 20px; display: flex; gap: 15px; }
+  .btn {
+      background: var(--white-square); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer;
+      font-family: 'Poppins', sans-serif; transition: 0.3s;
+  }
+  .btn:hover { background: white; color: #333; }
+
+  @media (max-width: 550px) { :root { --board-size: 340px; } .piece { font-size: 2em; } h1 { font-size: 1.8em; } }
+</style>
+</head>
+<body>
+
+  <div class="shape shape-1"></div>
+  <div class="shape shape-2"></div>
+
+  <div class="top-bar">
+      <a href="https://halfanhossenhabib.github.io/mysite-games" class="back-btn">
+          <i class="fas fa-arrow-left"></i> Games
+      </a>
+  </div>
+
+  <div class="game-container">
+      <h1>Chess AI (God Mode)</h1>
+      
+      <div class="status-bar">
+          <div class="turn-indicator" id="turnIndicator"></div>
+          <span id="statusText">Your Turn (White)</span>
+      </div>
+
+      <div class="chessboard" id="board"></div>
+
+      <div class="controls">
+          <button class="btn" onclick="resetGame()"><i class="fas fa-redo"></i> Restart</button>
+          <button class="btn" onclick="undoMove()"><i class="fas fa-undo"></i> Undo</button>
+      </div>
+  </div>
+
+<script>
+    // --- SETUP ---
+    const boardEl = document.getElementById('board');
+    const statusText = document.getElementById('statusText');
+    const turnIndicator = document.getElementById('turnIndicator');
+    
+    let game = new Chess();
+    let selectedSquare = null;
+
+    const pieceIcons = {
+        'p': 'fa-chess-pawn', 'r': 'fa-chess-rook', 'n': 'fa-chess-knight',
+        'b': 'fa-chess-bishop', 'q': 'fa-chess-queen', 'k': 'fa-chess-king'
+    };
+
+    // --- AI EVALUATION WEIGHTS (GOD MODE) ---
+    // These tables tell the AI where pieces are strongest.
+    const pst = {
+        'p': [ [0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],[5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0] ],
+        'n': [ [-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],[-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50] ],
+        'b': [ [-20,-10,-10,-10,-10,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,10,10,5,0,-10],[-10,5,5,10,10,5,5,-10],[-10,0,10,10,10,10,0,-10],[-10,10,10,10,10,10,10,-10],[-10,5,0,0,0,0,5,-10],[-20,-10,-10,-10,-10,-10,-10,-20] ],
+        'r': [ [0,0,0,0,0,0,0,0],[5,10,10,10,10,10,10,5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[0,0,0,5,5,0,0,0] ],
+        'q': [ [-20,-10,-10,-5,-5,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,5,5,5,0,-10],[-5,0,5,5,5,5,0,-5],[0,0,5,5,5,5,0,-5],[-10,5,5,5,5,5,0,-10],[-10,0,5,0,0,0,0,-10],[-20,-10,-10,-5,-5,-10,-10,-20] ],
+        'k': [ [-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,0,0,0,0,20,20],[20,30,10,0,0,10,30,20] ]
+    };
+    const weights = { 'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000 };
+
+    // --- GAME FUNCTIONS ---
+
+    function createBoard() {
+        boardEl.innerHTML = '';
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const square = document.createElement('div');
+                const isWhite = (row + col) % 2 === 0;
+                const squareId = String.fromCharCode(97 + col) + (8 - row); 
+                square.className = `square ${isWhite ? 'white-sq' : 'black-sq'}`;
+                square.dataset.id = squareId;
+                square.onclick = () => onSquareClick(squareId);
+                boardEl.appendChild(square);
+            }
+        }
+        renderPieces();
+    }
+
+    function renderPieces() {
+        document.querySelectorAll('.square').forEach(sq => {
+            sq.innerHTML = '';
+            sq.classList.remove('selected', 'highlight', 'capture-hint', 'in-check');
+        });
+
+        game.board().forEach((row, rIndex) => {
+            row.forEach((piece, cIndex) => {
+                if (piece) {
+                    const squareId = String.fromCharCode(97 + cIndex) + (8 - rIndex);
+                    const sqEl = document.querySelector(`.square[data-id="${squareId}"]`);
+                    const i = document.createElement('i');
+                    i.className = `fas ${pieceIcons[piece.type]} piece ${piece.color === 'w' ? 'white' : 'black'}`;
+                    sqEl.appendChild(i);
+                    if (game.in_check() && piece.type === 'k' && piece.color === game.turn()) {
+                        sqEl.classList.add('in-check');
+                    }
+                }
+            });
+        });
+        updateStatus();
+    }
+
+    function onSquareClick(squareId) {
+        if (game.game_over() || game.turn() === 'b') return; // Blocks click if AI turn
+
+        if (selectedSquare) {
+            const move = game.move({ from: selectedSquare, to: squareId, promotion: 'q' });
+            if (move) {
+                selectedSquare = null;
+                renderPieces();
+                if (!game.game_over()) {
+                    statusText.innerText = "AI Computing...";
+                    setTimeout(makeBestMove, 100); // Trigger AI
+                }
+                return;
+            } 
+        }
+
+        const piece = game.get(squareId);
+        renderPieces(); 
+        if (piece && piece.color === game.turn()) {
+            selectedSquare = squareId;
+            document.querySelector(`.square[data-id="${squareId}"]`).classList.add('selected');
+            game.moves({ square: squareId, verbose: true }).forEach(move => {
+                const sq = document.querySelector(`.square[data-id="${move.to}"]`);
+                move.flags.includes('c') || move.flags.includes('e') ? sq.classList.add('capture-hint') : sq.classList.add('highlight');
+            });
+        } else { selectedSquare = null; }
+    }
+
+    // --- ADVANCED AI LOGIC (MINIMAX + ALPHA-BETA) ---
+
+    function makeBestMove() {
+        // Depth 3 is standard hard. Depth 4 is very hard (slow on mobile).
+        const depth = 3; 
+        const bestMove = minimaxRoot(depth, game, true);
+        game.move(bestMove);
+        renderPieces();
+    }
+
+    function minimaxRoot(depth, game, isMaximisingPlayer) {
+        const moves = game.moves();
+        let bestMove = -9999;
+        let bestMoveFound;
+
+        for (let i = 0; i < moves.length; i++) {
+            game.move(moves[i]);
+            // Black minimizes White's score
+            const value = minimax(depth - 1, game, -10000, 10000, !isMaximisingPlayer);
+            game.undo();
+            if (value >= bestMove) {
+                bestMove = value;
+                bestMoveFound = moves[i];
+            }
+        }
+        return bestMoveFound;
+    }
+
+    function minimax(depth, game, alpha, beta, isMaximisingPlayer) {
+        if (depth === 0) return -evaluateBoard(game.board());
+
+        const moves = game.moves();
+
+        if (isMaximisingPlayer) { // AI tries to get best score for itself (if it was white)
+            let bestMove = -9999;
+            for (let i = 0; i < moves.length; i++) {
+                game.move(moves[i]);
+                bestMove = Math.max(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
+                game.undo();
+                alpha = Math.max(alpha, bestMove);
+                if (beta <= alpha) return bestMove;
+            }
+            return bestMove;
+        } else { // Player tries to minimize AI's score
+            let bestMove = 9999;
+            for (let i = 0; i < moves.length; i++) {
+                game.move(moves[i]);
+                bestMove = Math.min(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
+                game.undo();
+                beta = Math.min(beta, bestMove);
+                if (beta <= alpha) return bestMove;
+            }
+            return bestMove;
+        }
+    }
+
+    function evaluateBoard(board) {
+        let totalEvaluation = 0;
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                totalEvaluation += getPieceValue(board[i][j], i, j);
+            }
+        }
+        return totalEvaluation;
+    }
+
+    function getPieceValue(piece, x, y) {
+        if (piece === null) return 0;
+        
+        // Value = Base Weight + Position Bonus
+        const absoluteValue = weights[piece.type] + (piece.color === 'w' ? pst[piece.type][x][y] : pst[piece.type][7-x][y]);
+        return piece.color === 'w' ? absoluteValue : -absoluteValue;
+    }
+
+    // --- UI HELPERS ---
+
+    function updateStatus() {
+        if (game.in_checkmate()) { statusText.innerText = "Checkmate! Game Over."; }
+        else if (game.in_draw()) { statusText.innerText = "Draw!"; }
+        else {
+            statusText.innerText = game.turn() === 'w' ? "Your Turn (White)" : "AI Thinking...";
+            if (game.in_check()) statusText.innerText += " (Check!)";
+        }
+        turnIndicator.className = `turn-indicator ${game.turn() === 'w' ? '' : 'black'}`;
+    }
+
+    function resetGame() { game.reset(); selectedSquare = null; renderPieces(); }
+    function undoMove() { if(game.history().length >= 2) { game.undo(); game.undo(); renderPieces(); } }
+
+    createBoard();
+</script>
+</body>
+</html>
